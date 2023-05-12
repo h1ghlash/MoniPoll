@@ -1,0 +1,23 @@
+.ZoneForm {
+    position: absolute;
+    display: grid;
+    width: 25vw;
+    height: 100vh;
+    background-color: #2B2727;
+    grid-template-columns: 100%;
+    grid-template-rows: 17% 17% 17% 17% 17% 17%;
+}
+
+.ZoneFormContent {
+    padding: 25px;
+    background: #2B2727;
+    border-radius: 16px;
+    min-width: 250px;
+}
+
+.ZoneForm.active {
+    display: flex;
+    justify-content: right;
+    align-items: center;
+    margin-right: 50px;
+}

@@ -1,0 +1,48 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+.app {
+    display: grid;
+    grid-template-rows: 100vh;
+    grid-template-columns: 75vw 25vw;
+}
+
+.leaflet-container {
+    width: 75vw;
+    height: 100vh;
+}
+
+
+.Menu {
+    position: relative;
+    width: 25vw;
+    height: 100vh;
+    background-color: #2B2727;
+    display: grid;
+    justify-items: center;
+    grid-template-columns: 100%;
+    grid-template-rows: 17% 17% 17% 17% 17% 17%;
+
+}
+
+h1 {
+    color: white;
+    font-size: 36px;
+}
+.addZone {
+    grid-row: 4;
+    width: 60%;
+    height: 30%;
+}
+.start {
+    grid-row: 5;
+    width: 60%;
+    height: 30%;
+}
+
+.update {
+    grid-row: 6;
+    width: 60%;
+    height: 30%;
+}
