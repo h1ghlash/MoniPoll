@@ -13,6 +13,22 @@ body {
     height: 100vh;
 }
 
+button {
+    border-radius: 10px;
+    font-size: 20px;
+}
+
+input {
+    height: 20%;
+    border-radius: 10px;
+    font-size: 15px;
+}
+
+select {
+    height: 20%;
+    border-radius: 10px;
+    font-size: 15px;
+}
 
 .Menu {
     position: relative;
@@ -45,4 +61,20 @@ h1 {
     grid-row: 6;
     width: 60%;
     height: 30%;
+}
+
+.Lat {
+    grid-row: 1;
+}
+
+.Lng {
+    grid-row: 2;
+}
+
+.Rad {
+    grid-row: 3;
+}
+
+.TimeZone {
+    grid-row: 4;
 }

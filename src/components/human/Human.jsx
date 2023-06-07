@@ -1,12 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import './human.css';
+import cl from "./human.module.css"
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import iconMan from "./resources/man.svg"
+import IconInfectedMan from "./resources/infectedman.svg"
 import * as turf from '@turf/turf';
+//import {CircleMarker} from "react-leaflet/CircleMarker";
+import {Circle} from "react-leaflet/Circle"
 
-const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpdate, simulationTime}) => {
+const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpdate, simulationTime, zone}) => {
     const [people, setPeople] = useState([]);
+    const checkZoneInfection = (coordinates, age, infectionDegree) => {
+        if(coordinates.lng && coordinates.lat !== undefined) {
+            for (const zoneData of zone) {
+                const zoneCenter = turf.point([zoneData.lng, zoneData.lat]);
+                const personPoint = turf.point([coordinates.lng, coordinates.lat]);
+                const option = "kilometers";
+                const distance = turf.distance(zoneCenter, personPoint, option);
+                const distanceInMeters = Math.round(distance * 1000);
+                console.log(zoneData.radius);
+                console.log(distanceInMeters)
+                if (distanceInMeters <= zoneData.radius) {
+                    if (age >= 50) {
+                        infectionDegree = 20; // High infection degree for age 50 and above
+                    } else if (age >= 30) {
+                        infectionDegree = 15; // Moderate infection degree for age 30-59
+                    } else {
+                        infectionDegree = 10;
+                    }
+                    return infectionDegree;
+                }
+            }
+        }
+        return 0;
+    };
     const handlePathUpdate = (person) => {
         const path = pedestrianPaths.features[Math.floor(Math.random() * pedestrianPaths.features.length)];
         const startPosition = path.geometry.coordinates[0];
@@ -16,7 +43,14 @@ const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpda
             [destination[1], destination[0]]
         );
         const duration = Math.floor(Math.random() * 30000) + 10000;
-        const speed = 0.002;
+        const speed = 0.00122;
+        const age = Math.floor(Math.random() * (60-14+1) + 14);
+        const currPos = {
+            lat: startPosition[1],
+            lng: startPosition[0],
+        }
+       // const infectionDegree = checkZoneInfection(currPos);
+        const infectionDegree = person.infectionDegree || 0;
         return {
             ...person,
             currentPosition: {
@@ -29,6 +63,8 @@ const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpda
             },
             duration,
             speed,
+            age,
+            infectionDegree
         };
     };
 
@@ -52,14 +88,13 @@ const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpda
             const remaining = newPeopleCount - newPeople.length;
             const additionalPeople = Array.from({ length: remaining }, (_, index) => {
                 return handlePathUpdate({
-                    key: `person-${people.length + index}`,
+                    key: `person-${Math.floor(people.length + index)}`,
                 });
             });
             newPeople.push(...additionalPeople);
         }
         setPeople(newPeople);
     };
-
 
     useEffect(() => {
         if (pedestrianPaths && pedestrianPaths.features.length > 0) {
@@ -117,7 +152,6 @@ const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpda
             return () => clearInterval(timer);
         }
     }, [pedestrianPaths, simulationUpdate]);
-
     return (
         <>
             {isSimulationRunning && people.length > 0 &&
@@ -126,23 +160,42 @@ const Human = ({ pedestrianPaths, isSimulationRunning, numPeople, simulationUpda
                         person.currentPosition.lat !== undefined &&
                         person.currentPosition.lng !== undefined)
                     {
+                        person.infectionDegree = checkZoneInfection(person.currentPosition, person.age, person.infectionDegree);
                         return (<Marker
                             key={person.key}
                             position={person.currentPosition}
                             icon={L.icon({
-                                iconUrl:
-                                iconMan,
+                                iconUrl: person.infectionDegree > 0 ? IconInfectedMan : iconMan,
                                 iconSize: [32, 32],
                             })}
                         >
                             <Popup>
-                                {person.key}
-                                {person.currentPosition.lng}
-                                {person.currentPosition.lat}
+                                key: {person.key}
+                                <br/>
+                                age: {person.age}
+                                <br/>
+                                infected: {person.infectionDegree} %
                             </Popup>
                         </Marker>)
                     }
                 })}
+            {isSimulationRunning && (
+                zone.map((zones, index) => (
+                    <Circle
+                        key={index}
+                        center={[zones.lat, zones.lng]}
+                        radius={zones.radius}
+                        pathOptions={{ color: "red" }}
+                        
+                    >
+                        <Popup>
+                            radius: {zones.radius} meters
+                            <br />
+                            type: {zones.type}
+                        </Popup>
+                    </Circle>
+                ))
+            )}
         </>
     );
 

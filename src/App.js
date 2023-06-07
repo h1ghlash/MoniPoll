@@ -5,6 +5,7 @@ import {
     Marker,
     Popup,
     GeoJSON,
+    useMapEvents
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./app.css";
@@ -28,7 +29,7 @@ L.Icon.Default.mergeOptions({
 });
 const SECONDS_PER_HOUR = 1;
 const App = () => {
-    const defaultPosition = [54.8463, 83.0884];
+    const defaultPosition = [54.83826818509456, 83.10524225234987];
     const [pedestrianPaths, setPedestrianPaths] = useState(null);
     const [isSimulationRunning, setIsSimulationRunning] = useState(false);
     const [simulationTime, setSimulationTime] = useState(new Date("2023-04-18T00:00:00"));
@@ -41,8 +42,11 @@ const App = () => {
     const [zoneLng, setZoneLng] = useState(0.0);
     const [zoneRad, setZoneRad] = useState(0);
     const [zoneTime, setZoneTime] = useState(0);
+    const [zoneType, setZoneType] = useState('');
     const [zone, setZone] = useState([]);
-    console.log(zone);
+    const [selectedLat, setSelectedLat] = useState(0.0);
+    const [selectedLng, setSelectedLng] = useState(0.0);
+    const [zoneCoordinates, setZoneCoordinates] = useState([]);
     useEffect(() => {
         const fetchData = async () => {
             const response = await fetch(
@@ -104,13 +108,32 @@ const App = () => {
         setZoneTime(event.target.value)
     }
 
+    const handleZoneTypeChange = (event) => {
+        setZoneType(event.target.value)
+    }
+
     const handleAddZone = () => {
-        const PollutionZone = {lat: zoneLat, lng: zoneLng, radius: zoneRad, time: zoneTime}
+        const PollutionZone = {lat: selectedLat, lng: selectedLng, radius: zoneRad, time: zoneTime, type: zoneType}
         setZone((prevZone) => [...prevZone, PollutionZone]);
         setZoneLat(0.0);
         setZoneLng(0.0);
         setZoneRad(0);
         setZoneTime(0);
+        setZoneType('');
+        const coords = [];
+        for (let i = 0; i < zone.length; i++) {
+            const z = zone[i];
+            const center = [z.lat, z.lng];
+            const radius = z.radius;
+            const segments = 50;
+            for (let j = 0; j <= segments; j++) {
+                const angle = (Math.PI / 180) * (j * (360 / segments));
+                const x = radius * Math.cos(angle);
+                const y = radius * Math.sin(angle);
+                coords.push({lat: center[0] + x, lng: center[1] + y});
+            }
+        }
+        setZoneCoordinates((prevCoords) => [...prevCoords, coords]);
     }
 
     const handleZoneFormVisible = () => {
@@ -135,44 +158,54 @@ const App = () => {
         return hours >= 22 || hours < 6;
     };
 
+    const MapClickHandler = () => {
+        useMapEvents({
+            click: (e) => {
+                setSelectedLat(e.latlng.lat);
+                setSelectedLng(e.latlng.lng);
+            },
+        });
+
+        return null;
+    };
+
     return (
         <div className="app">
             <div className="map">
-                <MapContainer center={defaultPosition} zoom={15} className="map-container">
+                <MapContainer center={defaultPosition} zoom={15} className="map-container" >
                     <TileLayer
                         url={isNightTime(simulationTime) ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
                     />
-                    {zone.map((zones, index) => (
-                        <CircleMarker
-                            key={index}
-                            center={[zones.lat, zones.lng]}
-                            radius={zones.radius}
-                            pathOptions={{ color: "red" }}
-                        />
-                    ))}
+                    <MapClickHandler/>
                     {pedestrianPaths && (
-                        <Human pedestrianPaths={pedestrianPaths} isSimulationRunning={isSimulationRunning} numPeople={numPeople} simulationUpdate={updateSimulation} simulationTime={simulationTime}/>)
+                        <Human pedestrianPaths={pedestrianPaths} isSimulationRunning={isSimulationRunning} numPeople={numPeople} simulationUpdate={updateSimulation} simulationTime={simulationTime} zone={zone}/>)
                     }
                 </MapContainer>
 
             </div>
             <div className="rightMenu">
                 <ZoneForm visible={zoneFormVisible}>
+                    <h1>Adding  Zone</h1>
                     <div className="Lat">
                         <label style={{color: "white", fontSize: 20}}>lat: </label>
-                        <input className="zoneLat" type="number" value={zoneLat} onChange={handleZoneLatChange}/>
+                        <input className="zoneLat" type="number" value={selectedLat} onChange={handleZoneLatChange}/>
                     </div>
                     <div className="Lng">
                         <label style={{color: "white", fontSize: 20}}>lng: </label>
-                        <input className="zoneLng" type="number" value={zoneLng} onChange={handleZoneLngChange}/>
+                        <input className="zoneLng" type="number" value={selectedLng} onChange={handleZoneLngChange}/>
                     </div>
                     <div className="Rad">
                         <label style={{color: "white", fontSize: 20}}>radius: </label>
                         <input className="zoneRad" type="number" value={zoneRad} onChange={handleZoneRadChange}/>
                     </div>
-                    <div className="TimeZone">
-                        <label style={{color: "white", fontSize: 20}}>time: </label>
-                        <input className="zoneTime" type="number" value={zoneTime} onChange={handleZoneTimeChange}/>
+                    <div className="TypeZone">
+                        <label style={{color: "white", fontSize: 20}}>type: </label>
+                        <select className="zoneType" value={zoneType} onChange={handleZoneTypeChange}>
+                            <option>Radiation</option>
+                            <option>Ammonia</option>
+                            <option>Virus</option>
+                            <option>Hydrogen sulfide</option>
+                        </select>
                     </div>
                     <button className="addPollZone" onClick={handleAddZone}>Add</button>
                     <button onClick={handleZoneFormClose}>Close Form</button>
