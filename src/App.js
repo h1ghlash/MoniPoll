@@ -30,9 +30,10 @@ L.Icon.Default.mergeOptions({
 const SECONDS_PER_HOUR = 1;
 const App = () => {
     const defaultPosition = [54.83826818509456, 83.10524225234987];
+    const [people, setPeople] = useState([]);
     const [pedestrianPaths, setPedestrianPaths] = useState(null);
     const [isSimulationRunning, setIsSimulationRunning] = useState(false);
-    const [simulationTime, setSimulationTime] = useState(new Date("2023-04-18T00:00:00"));
+    const [simulationTime, setSimulationTime] = useState(new Date("2023-06-20T00:00:00"));
     const [simulationDays, setSimulationDays] = useState(1);
     const [numPeople, setNumPeople] = useState(100);
     const [updateSimulation, setUpdateSimulation] = useState(false);
@@ -47,6 +48,9 @@ const App = () => {
     const [selectedLat, setSelectedLat] = useState(0.0);
     const [selectedLng, setSelectedLng] = useState(0.0);
     const [zoneCoordinates, setZoneCoordinates] = useState([]);
+    const [infectedCount, setInfectedCount] = useState(0);
+    const [uninfectedCount, setUninfectedCount] = useState(0);
+    const [simulationFinished, setSimulationFinished] = useState(false);
     useEffect(() => {
         const fetchData = async () => {
             const response = await fetch(
@@ -65,9 +69,10 @@ const App = () => {
             timerId = setInterval(() => {
                 setSimulationTime((prevTime) => {
                     const newTime = new Date(prevTime.getTime() + 60 * 60 * 1000 / SECONDS_PER_HOUR);
-                    if (newTime.getTime() >= new Date("2023-04-18T00:00:00").getTime() + simulationDays * 24 * 60 * 60 * 1000) {
+                    if (newTime.getTime() >= new Date("2023-06-20T00:00:00").getTime() + simulationDays * 24 * 60 * 60 * 1000) {
                         setIsSimulationRunning(false);
                         clearInterval(timerId);
+                        setSimulationFinished(true);
                         return prevTime;
                     }
                     return newTime;
@@ -82,6 +87,7 @@ const App = () => {
     const handleSimulationToggle = () => {
         setIsSimulationRunning(!isSimulationRunning);
         setUpdateSimulation(false)
+        setSimulationFinished(false);
     }
 
     const handleSimulationDaysChange = (event) => {
@@ -146,11 +152,15 @@ const App = () => {
     }
     const handleUpdateSimulation = () => {
         setUpdateSimulation(true);
-        setSimulationTime(new Date("2023-04-18T00:00:00"));
+        setSimulationTime(new Date("2023-06-T00:00:00"));
         setSimulationDays(1);
         setIsSimulationRunning(false);
         setNumPeople(100)
         setZone([]);
+        setSimulationFinished(false);
+        setPeople([]);
+        setInfectedCount(0);
+        setUninfectedCount(0);
     };
 
     const isNightTime = (time) => {
@@ -169,6 +179,17 @@ const App = () => {
         return null;
     };
 
+    const handleDownloadStats = () => {
+        const stats = `Number of People: ${people.length}\nInfected Count: ${infectedCount}\nUninfected Count: ${uninfectedCount}\nDate: ${simulationTime.toLocaleDateString()}`;
+        const element = document.createElement("a");
+        const file = new Blob([stats], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = "simulation_stats.txt";
+        document.body.appendChild(element); // Required for this to work in FireFox
+        element.click();
+        document.body.removeChild(element); // Clean up the temporary element
+    };
+
     return (
         <div className="app">
             <div className="map">
@@ -178,63 +199,85 @@ const App = () => {
                     />
                     <MapClickHandler/>
                     {pedestrianPaths && (
-                        <Human pedestrianPaths={pedestrianPaths} isSimulationRunning={isSimulationRunning} numPeople={numPeople} simulationUpdate={updateSimulation} simulationTime={simulationTime} zone={zone}/>)
+                        <Human people={people}
+                               setPeople={setPeople}
+                               pedestrianPaths={pedestrianPaths}
+                               isSimulationRunning={isSimulationRunning}
+                               numPeople={numPeople}
+                               simulationUpdate={updateSimulation}
+                               simulationTime={simulationTime}
+                               zone={zone}
+                               setInfectedCount={setInfectedCount}
+                               setUninfectedCount={setUninfectedCount}
+                        />)
                     }
                 </MapContainer>
 
             </div>
-            <div className="rightMenu">
-                <ZoneForm visible={zoneFormVisible}>
-                    <h1>Adding  Zone</h1>
-                    <div className="Lat">
-                        <label style={{color: "white", fontSize: 20}}>lat: </label>
-                        <input className="zoneLat" type="number" value={selectedLat} onChange={handleZoneLatChange}/>
-                    </div>
-                    <div className="Lng">
-                        <label style={{color: "white", fontSize: 20}}>lng: </label>
-                        <input className="zoneLng" type="number" value={selectedLng} onChange={handleZoneLngChange}/>
-                    </div>
-                    <div className="Rad">
-                        <label style={{color: "white", fontSize: 20}}>radius: </label>
-                        <input className="zoneRad" type="number" value={zoneRad} onChange={handleZoneRadChange}/>
-                    </div>
-                    <div className="TypeZone">
-                        <label style={{color: "white", fontSize: 20}}>type: </label>
-                        <select className="zoneType" value={zoneType} onChange={handleZoneTypeChange}>
-                            <option>Radiation</option>
-                            <option>Ammonia</option>
-                            <option>Virus</option>
-                            <option>Hydrogen sulfide</option>
-                        </select>
-                    </div>
-                    <button className="addPollZone" onClick={handleAddZone}>Add</button>
-                    <button onClick={handleZoneFormClose}>Close Form</button>
-                </ZoneForm>
-                <div className="Menu" style={{visibility: menuFormVisible}}>
-                    <h1>MoniPoll</h1>
-                    <button className="start" onClick={handleSimulationToggle}>{isSimulationRunning ? 'Stop Simulation' : 'Start Simulation'}</button>
+            {simulationFinished
+                ? (
+                <div className="stat" style={{position: "relative", justifyItems: "center", display: "grid", width: "25vw", height: "100vh", backgroundColor: "#2B2727", gridTemplateColumns: "100%", gridTemplateRows: "17% 17% 17% 17% 17% 17%", gridColumn: 2}}>
+                    <h1>Simulation Statistics</h1>
+                    <p style={{color: "red", fontSize: 24}}>Infected Count: {infectedCount}</p>
+                    <p style={{color: "green", fontSize: 24}}>Uninfected Count: {uninfectedCount}</p>
+                    <p style={{color: "white", fontSize: 24}}>Date: {simulationTime.toLocaleDateString()}</p>
+                    <u className="download-stats" style={{color: "blue", fontSize: 24, cursor: "pointer"}} onClick={handleDownloadStats}>Download txt doc with statistical</u>
                     <button className="update" onClick={handleUpdateSimulation}>Update Simulation</button>
-                    {isSimulationRunning ?
-                        <label style={{color: "white", fontSize: 20}} className="time">{simulationTime.toLocaleString()}</label>
-                        :
-                        <label style={{color: "white", fontSize: 20}}>
-                            Simulation Days:
-                            <input
-                                type="number"
-                                min="1"
-                                max="365"
-                                value={simulationDays}
-                                onChange={handleSimulationDaysChange}
-                            />
-                        </label>
-                    }
-                    <div className="control-group">
-                        <label htmlFor="numPeople" style={{color: "white", fontSize: 18}}>Number of People:</label>
-                        <input type="number" id="numPeople" name="numPeople" min="50" defaultValue={numPeople} onBlur={handlePeopleChange} />
+                </div> )
+                : (<div className="rightMenu">
+                    <ZoneForm visible={zoneFormVisible}>
+                        <h1>Adding  Zone</h1>
+                        <div className="Lat">
+                            <label style={{color: "white", fontSize: 20}}>lat: </label>
+                            <input className="zoneLat" type="number" value={selectedLat} onChange={handleZoneLatChange}/>
+                        </div>
+                        <div className="Lng">
+                            <label style={{color: "white", fontSize: 20}}>lng: </label>
+                            <input className="zoneLng" type="number" value={selectedLng} onChange={handleZoneLngChange}/>
+                        </div>
+                        <div className="Rad">
+                            <label style={{color: "white", fontSize: 20}}>radius: </label>
+                            <input className="zoneRad" type="number" value={zoneRad} onChange={handleZoneRadChange}/>
+                        </div>
+                        <div className="TypeZone">
+                            <label style={{color: "white", fontSize: 20}}>type: </label>
+                            <select className="zoneType" value={zoneType} onChange={handleZoneTypeChange}>
+                                <option>Radiation</option>
+                                <option>Ammonia</option>
+                                <option>Virus</option>
+                                <option>Hydrogen sulfide</option>
+                            </select>
+                        </div>
+                        <button className="addPollZone" onClick={handleAddZone}>Add</button>
+                        <button onClick={handleZoneFormClose}>Close Form</button>
+                    </ZoneForm>
+                    <div className="Menu" style={{visibility: menuFormVisible}}>
+                        <h1>MoniPoll</h1>
+                        <button className="start" onClick={handleSimulationToggle}>{isSimulationRunning ? 'Stop Simulation' : 'Start Simulation'}</button>
+                        <button className="update" onClick={handleUpdateSimulation}>Update Simulation</button>
+                        {isSimulationRunning ?
+                            <label style={{color: "white", fontSize: 20}} className="time">{simulationTime.toLocaleString()}</label>
+                            :
+                            <label style={{color: "white", fontSize: 20}}>
+                                Simulation Days:
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="365"
+                                    value={simulationDays}
+                                    onChange={handleSimulationDaysChange}
+                                />
+                            </label>
+                        }
+                        <div className="control-group">
+                            <label htmlFor="numPeople" style={{color: "white", fontSize: 18}}>Number of People:</label>
+                            <input type="number" id="numPeople" name="numPeople" min="50" defaultValue={numPeople} onBlur={handlePeopleChange} />
+                        </div>
+                        <button className="addZone" onClick={handleZoneFormVisible}>Add Zone</button>
                     </div>
-                    <button className="addZone" onClick={handleZoneFormVisible}>Add Zone</button>
-                </div>
-            </div>
+                </div>)
+            }
+
         </div>
     );
 };
